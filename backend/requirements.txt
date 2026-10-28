@@ -6,3 +6,4 @@ django-filter==26.2
 APScheduler==3.11.3
 python-dotenv==1.2.4
 requests==2.34.2
+whitenoise==6.12.0

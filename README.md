@@ -149,6 +149,7 @@ sauf la réception des mesures (clé du nœud) et la réinitialisation du mot de
 | CRUD | `/api/users/` · `/api/devices/` · `/api/escalation/` | Administration | Admin |
 | POST | `/api/devices/{id}/rotate-key/` | Nouvelle clé de nœud (affichée une fois) | Admin |
 | GET | `/api/events/?type=&actor=&from=&to=` | Journal d'événements | Admin |
+| POST | `/api/engine/tick/` | Un cycle du moteur d'alertes (cron externe, en-tête `X-Engine-Token`) | Jeton secret |
 
 `from` / `to` acceptent une date (`2026-10-28`) ou une date-heure ISO 8601.
 
@@ -223,6 +224,13 @@ python scripts\simulate_node.py --key <clé> --scenario full --interval 10
 
 Scénarios : `normal`, `excursion`, `sensor`, `offline`, `full`. Avec le backend e-mail
 console, les e-mails s'affichent dans le terminal du moteur.
+
+## Déploiement
+
+Production sur **PythonAnywhere** (compte gratuit, HTTPS inclus) : Django sert l'API, l'admin
+et l'interface React ; cron-job.org déclenche le moteur d'alertes chaque minute ; une tâche
+quotidienne sauvegarde SQLite (`manage.py backup_db`). Guide pas à pas :
+[`docs/deploiement-pythonanywhere.md`](docs/deploiement-pythonanywhere.md).
 
 ## Tests et qualité
 

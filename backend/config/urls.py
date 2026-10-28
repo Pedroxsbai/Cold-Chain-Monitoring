@@ -1,5 +1,5 @@
 from django.contrib import admin
-from django.urls import include, path
+from django.urls import include, path, re_path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenBlacklistView, TokenRefreshView
 
@@ -12,7 +12,8 @@ from accounts.views import (
     UserViewSet,
 )
 from audit.views import EventLogViewSet
-from incidents.views import AckLinkView, IncidentViewSet
+from config.views import frontend
+from incidents.views import AckLinkView, EngineTickView, IncidentViewSet
 from monitoring.views import (
     DeviceViewSet,
     EscalationChainViewSet,
@@ -47,5 +48,8 @@ urlpatterns = [
     path("api/auth/", include(auth_patterns)),
     path("api/measurements/", MeasurementView.as_view(), name="measurements"),
     path("api/ack/<str:token>/", AckLinkView.as_view(), name="ack_link"),
+    path("api/engine/tick/", EngineTickView.as_view(), name="engine_tick"),
     path("api/", include(router.urls)),
+    # Everything else is a page of the React app.
+    re_path(r"^(?!api/|admin/|static/).*$", frontend, name="frontend"),
 ]

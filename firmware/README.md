@@ -9,7 +9,7 @@ Toute la logique (incidents, alertes) est sur le serveur.
 | `cold_chain_node/cold_chain_node.ino` | Programme principal |
 | `cold_chain_node/config.h` | Réglages : broche, type de capteur, intervalle, mode démo |
 | `cold_chain_node/secrets.example.h` | Modèle à copier en `secrets.h` (Wi-Fi, URL, clé) — `secrets.h` n'est jamais versionné |
-| `cold_chain_node/root_ca.h` | Certificat racine Let's Encrypt, pour le HTTPS en production |
+| `cold_chain_node/root_ca.h` | Certificats racines Let's Encrypt (X1, X2), pour le HTTPS en production |
 | `examples/` | Premiers essais (lecture DHT seule, envoi simple) |
 
 ## 1. Câblage
@@ -108,5 +108,7 @@ un SHT31 est recommandé.
 ## Production (HTTPS)
 
 Avec `SERVER_URL = "https://votre-domaine/api/measurements/"`, le nœud synchronise son
-horloge (NTP) puis vérifie le certificat du serveur avec la racine Let's Encrypt
-(`root_ca.h`, valable jusqu'en 2035). Aucun autre réglage n'est nécessaire.
+horloge (NTP) puis vérifie le certificat du serveur avec les racines Let's Encrypt
+ISRG Root X1 et X2 (`root_ca.h`, valables jusqu'en 2035 et 2040). Aucun autre réglage
+n'est nécessaire. Déploiement PythonAnywhere : voir
+[`docs/deploiement-pythonanywhere.md`](../docs/deploiement-pythonanywhere.md).

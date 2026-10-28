@@ -34,5 +34,5 @@
 
 // ---- HTTPS ----------------------------------------------------------------
 // With an https:// SERVER_URL the server certificate is checked against the
-// Let's Encrypt root (root_ca.h). Set to 1 only to debug a TLS problem.
+// Let's Encrypt roots (root_ca.h). Set to 1 only to debug a TLS problem.
 #define TLS_INSECURE 0

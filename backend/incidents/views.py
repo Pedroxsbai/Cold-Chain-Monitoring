@@ -1,3 +1,7 @@
+import hmac
+
+from django.conf import settings
+from django.http import Http404
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -12,7 +16,7 @@ from audit.services import log_event
 from common.dates import filter_date_range
 from monitoring.services import fridges_for
 
-from . import ack, services
+from . import ack, engine, services
 from .models import Incident, Notification
 from .serializers import (
     CloseIncidentSerializer,
@@ -168,3 +172,32 @@ class AckLinkView(APIView):
         notification.read_at = notification.read_at or now
         notification.save(update_fields=["ack_used_at", "read_at"])
         return Response(self.describe(notification))
+
+
+class EngineTickView(APIView):
+    """Run one cycle of the alert engine (offline detection, escalation, notifications).
+
+    For hosts without a permanent process: an external cron service calls it every
+    minute with the `X-Engine-Token` header. Disabled when ENGINE_TICK_TOKEN is empty.
+    """
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        expected = settings.COLDCHAIN["ENGINE_TICK_TOKEN"]
+        if not expected:
+            raise Http404
+        given = request.META.get("HTTP_X_ENGINE_TOKEN", "")
+        if not hmac.compare_digest(given.encode(), expected.encode()):
+            return Response({"detail": "Jeton invalide."}, status=status.HTTP_403_FORBIDDEN)
+        started = timezone.now()
+        engine.tick(started)
+        return Response(
+            {
+                "ok": True,
+                "at": started,
+                "duration_ms": round((timezone.now() - started).total_seconds() * 1000),
+                "unfinished_incidents": Incident.objects.filter(ended_at__isnull=True).count(),
+            }
+        )

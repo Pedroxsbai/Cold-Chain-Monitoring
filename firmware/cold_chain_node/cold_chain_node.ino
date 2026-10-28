@@ -25,7 +25,7 @@
 #include "secrets.h"
 
 DHT dht(DHT_PIN, DHT_TYPE);
-BearSSL::X509List trustAnchor(ROOT_CA);
+BearSSL::X509List trustAnchors(ROOT_CA);  // ISRG Root X1 + X2
 
 unsigned long lastMeasurementAt = 0;
 bool firstCycle = true;
@@ -133,9 +133,9 @@ int postOnce(const String& payload) {
 #if TLS_INSECURE
     secureClient.setInsecure();
 #else
-    secureClient.setTrustAnchors(&trustAnchor);
+    secureClient.setTrustAnchors(&trustAnchors);
 #endif
-    secureClient.setBufferSizes(4096, 512);  // fits the ESP8266 RAM
+    // Default 16 kB receive buffer: hosting servers rarely accept smaller TLS fragments.
     started = http.begin(secureClient, SERVER_URL);
   } else {
     started = http.begin(plainClient, SERVER_URL);

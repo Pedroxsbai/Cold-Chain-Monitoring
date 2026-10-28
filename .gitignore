@@ -35,3 +35,6 @@ Thumbs.db
 /Cahier des charges*.md
 /ESP8266 Node MCUKIT.png
 /*.ino
+
+# Database backups (manage.py backup_db)
+backend/backups/

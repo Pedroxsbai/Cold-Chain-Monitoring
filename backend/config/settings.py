@@ -55,6 +55,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # Serves the admin static files and the React build (single web app in production).
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -123,6 +125,12 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# React build (`npm run build` in frontend/). When present, Django serves it: its files
+# from the site root (WhiteNoise), and index.html for every client-side route.
+FRONTEND_DIST = Path(os.environ.get("FRONTEND_DIST", BASE_DIR.parent / "frontend" / "dist"))
+if FRONTEND_DIST.is_dir():
+    WHITENOISE_ROOT = FRONTEND_DIST
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -203,6 +211,12 @@ COLDCHAIN = {
     # Frontend URL (pages opened by users) and API URL (ntfy action buttons).
     "PUBLIC_BASE_URL": os.environ.get("PUBLIC_BASE_URL", "http://localhost:5173"),
     "API_BASE_URL": os.environ.get("API_BASE_URL", "http://localhost:8000"),
+    # Secret for POST /api/engine/tick/, called every minute by an external cron service
+    # on hosts without a permanent process (PythonAnywhere). Empty: endpoint disabled.
+    "ENGINE_TICK_TOKEN": os.environ.get("ENGINE_TICK_TOKEN", ""),
+    # Daily SQLite backups (manage.py backup_db) and how many to keep.
+    "BACKUP_DIR": os.environ.get("BACKUP_DIR", str(BASE_DIR / "backups")),
+    "BACKUP_KEEP": int(os.environ.get("BACKUP_KEEP", "14")),
 }
 
 LOGGING = {
