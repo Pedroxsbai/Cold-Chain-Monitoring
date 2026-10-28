@@ -70,9 +70,11 @@ Puis :
 
 ```bash
 python manage.py migrate
-python manage.py createsuperuser   # connexion par e-mail
+python manage.py createsuperuser
 python manage.py runserver 0.0.0.0:8000
 ```
+
+`createsuperuser` demande une adresse e-mail (pas de nom d'utilisateur) : la connexion se fait par e-mail.
 
 - Admin Django : http://localhost:8000/admin/
 - Connexion JWT : `POST /api/auth/login/` avec `{"email": "...", "password": "..."}`
