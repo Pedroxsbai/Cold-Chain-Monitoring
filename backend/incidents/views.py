@@ -128,6 +128,7 @@ class AckLinkView(APIView):
                 "current_level": incident.current_level,
                 "excursion_minutes": incident.total_excursion_minutes(),
                 "remaining_minutes": incident.remaining_minutes,
+                "max_excursion_hours": incident.fridge.max_excursion_hours,
                 "reagents_compromised": incident.reagents_compromised,
             },
             "recipient": notification.user.get_full_name() or notification.user.email,

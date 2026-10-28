@@ -10,7 +10,7 @@ Le cahier des charges complet se trouve dans [`docs/cahier-des-charges.md`](docs
 | Dossier | Contenu |
 | --- | --- |
 | `backend/` | API Django + Django REST Framework, moteur d'incidents et d'escalade |
-| `frontend/` | Application React (Vite) — *à venir* |
+| `frontend/` | Application React (Vite + TypeScript) |
 | `firmware/` | Firmware ESP8266 + DHT (C/C++ Arduino) |
 | `docs/` | Cahier des charges, schémas, rapports |
 
@@ -98,6 +98,31 @@ l'action « Régénérer la clé API » en crée une nouvelle.
 
 - Admin Django : http://localhost:8000/admin/
 - Connexion JWT : `POST /api/auth/login/` avec `{"email": "...", "password": "..."}`
+
+## Frontend (développement)
+
+Prérequis : Node.js 20+. Le backend doit tourner sur le port 8000.
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Ouvrir http://localhost:5173. Le serveur Vite relaie `/api` vers Django : pas de CORS à gérer.
+Pour tester la page d'acquittement depuis un téléphone sur le même Wi-Fi :
+`npm run dev -- --host`, puis `PUBLIC_BASE_URL=http://<ip-du-pc>:5173` dans `backend/.env`.
+
+| Page | Chemin | Accès |
+| --- | --- | --- |
+| Connexion, mot de passe oublié | `/connexion`, `/mot-de-passe-oublie` | Public |
+| Prise en charge depuis une notification (mobile) | `/ack/<jeton>` | Public, lien signé |
+| Tableau de bord (carte par frigo, jauge 2–8 °C, compteur d'excursion) | `/` | Connecté |
+| Frigo : graphiques température / humidité, période, export CSV | `/frigos/<id>` | Connecté |
+| Historique paginé et filtré | `/historique` | Connecté |
+| Incidents, détail, prise en charge, commentaires, clôture | `/incidents` | Connecté |
+| Profil et topic ntfy | `/profil` | Connecté |
+| Frigos (seuils, chaîne d'escalade), nœuds (clés), utilisateurs, journal | `/admin/...` | Admin |
 
 ## API REST
 
