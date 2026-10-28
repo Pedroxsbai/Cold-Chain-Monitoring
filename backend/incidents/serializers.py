@@ -25,7 +25,18 @@ class NotificationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Notification
-        fields = ["id", "user", "user_name", "channel", "level", "status", "sent_at", "read_at"]
+        fields = [
+            "id",
+            "user",
+            "user_name",
+            "channel",
+            "kind",
+            "level",
+            "status",
+            "error",
+            "sent_at",
+            "read_at",
+        ]
 
     def get_user_name(self, obj):
         return user_name(obj.user)
@@ -41,6 +52,9 @@ class IncidentSerializer(serializers.ModelSerializer):
     type_label = serializers.CharField(source="get_type_display", read_only=True)
     status_label = serializers.CharField(source="get_status_display", read_only=True)
     remaining_minutes = serializers.FloatField(read_only=True)
+    # Live value, including the ongoing out-of-range period.
+    excursion_minutes = serializers.FloatField(source="total_excursion_minutes", read_only=True)
+    out_of_range_now = serializers.SerializerMethodField()
     acked_by_name = serializers.SerializerMethodField()
     closed_by_name = serializers.SerializerMethodField()
     can_ack = serializers.SerializerMethodField()
@@ -63,6 +77,7 @@ class IncidentSerializer(serializers.ModelSerializer):
             "last_notified_at",
             "excursion_minutes",
             "remaining_minutes",
+            "out_of_range_now",
             "severity_hours_reached",
             "reagents_compromised",
             "acked_by",
@@ -75,6 +90,9 @@ class IncidentSerializer(serializers.ModelSerializer):
             "can_ack",
             "can_close",
         ]
+
+    def get_out_of_range_now(self, obj):
+        return obj.out_since is not None
 
     def get_acked_by_name(self, obj):
         return user_name(obj.acked_by)

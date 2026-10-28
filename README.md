@@ -51,13 +51,23 @@ EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
 # EMAIL_HOST_PASSWORD=
 # DEFAULT_FROM_EMAIL=coldchain@example.com
 
-# Surveillance
-MEASUREMENT_INTERVAL_MINUTES=20
+# Surveillance et escalade (durées en minutes, décimales acceptées)
 OFFLINE_AFTER_MINUTES=45
-NOTIFY_EVERY_MINUTES=20
 CONSECUTIVE_OUT_OF_RANGE=2
+NOTIFY_EVERY_MINUTES=20
+ESCALATE_N2_AFTER_ROUNDS=4
+ESCALATE_N3_AFTER_ROUNDS=8
+SEVERITY_HOURS=5,8
+RESUME_AFTER_ACK_MINUTES=120
+TICK_SECONDS=30
+
+# Notifications
+NOTIFY_CHANNELS=ntfy,email
 NTFY_SERVER=https://ntfy.sh
+# NTFY_TOKEN=
+ACK_LINK_MAX_AGE_HOURS=24
 PUBLIC_BASE_URL=http://localhost:5173
+API_BASE_URL=http://localhost:8000
 ```
 
 Générer une clé secrète :
@@ -122,6 +132,72 @@ Exemple d'envoi par un nœud :
 ```bash
 curl -X POST http://localhost:8000/api/measurements/   -H "Content-Type: application/json" -H "X-Device-Key: <clé>"   -d '{"device_id": "FRIGO-LAB-01", "temperature": 5.2, "humidity": 48, "sensor_ok": true, "firmware": "1.0.0"}'
 ```
+
+## Moteur d'alertes
+
+Le serveur web enregistre les mesures et ouvre / termine les incidents. Un second processus,
+le moteur d'alertes, tourne en permanence à côté : il détecte les nœuds silencieux, envoie
+les notifications et gère l'escalade.
+
+```bash
+python manage.py run_alert_engine          # en continu (un cycle toutes les 30 s)
+python manage.py run_alert_engine --once   # un seul cycle
+```
+
+Règles appliquées (cahier des charges §7) :
+
+| Règle | Comportement |
+| --- | --- |
+| Ouverture | 2 mesures consécutives hors plage (`CONSECUTIVE_OUT_OF_RANGE`) ; 2 lectures capteur invalides ; nœud muet depuis 45 min |
+| Unicité | Un seul incident en cours par frigo ; les mesures suivantes s'y rattachent (un nœud hors ligne qui revient hors plage transforme l'incident en incident de température) |
+| Fin | Première mesure revenue dans la plage ; les personnes alertées reçoivent « retour à la normale » |
+| Excursion | Temps cumulé hors plage, compté depuis la première mesure hors plage, affiché en direct avec le temps restant avant 10 h |
+| Relances | Toutes les 20 min tant que personne n'a pris l'incident en charge |
+| Escalade | N1 seul pour les 4 premières notifications, N1 + N2 de la 5ᵉ à la 8ᵉ, N1 + N2 + N3 ensuite |
+| Gravité | À 5 h et 8 h d'excursion : alerte immédiate à tous les niveaux, même après prise en charge ; à 10 h : « réactifs compromis » |
+| Reprise | Toujours en cours 2 h après la prise en charge : l'escalade reprend au niveau suivant |
+| Personne dans la chaîne | Les administrateurs sont prévenus |
+
+### Canaux
+
+- **ntfy** : installer l'application ntfy sur le téléphone, s'abonner à un topic difficile à
+  deviner (ex. `coldchain-labo-7f3k9`) et le renseigner dans le profil (`ntfy_topic`).
+  La notification porte un bouton « Je prends en charge ».
+- **E-mail** : le message contient le lien de prise en charge.
+
+Chaque notification a son propre lien signé, valable 24 h et utilisable une seule fois.
+Ouvrir le lien est enregistré mais n'arrête pas l'escalade : seule l'action « Je prends en
+charge » le fait.
+
+## Simulation
+
+`scripts/simulate_node.py` se comporte comme un nœud ESP8266 (HTTP + clé) et rejoue un
+incident complet en quelques minutes. Exemple de démo accélérée, dans trois terminaux :
+
+Terminal 1 (serveur web) et terminal 2 (moteur), sous Windows cmd :
+
+```bat
+set NOTIFY_EVERY_MINUTES=0.5
+set OFFLINE_AFTER_MINUTES=1
+set TICK_SECONDS=5
+python manage.py runserver
+```
+
+```bat
+set NOTIFY_EVERY_MINUTES=0.5
+set OFFLINE_AFTER_MINUTES=1
+set TICK_SECONDS=5
+python manage.py run_alert_engine
+```
+
+Terminal 3 (nœud simulé, avec la clé affichée par `seed_demo` ou l'admin) :
+
+```bat
+python scripts\simulate_node.py --key <clé> --scenario full --interval 10
+```
+
+Scénarios : `normal`, `excursion`, `sensor`, `offline`, `full`. Avec le backend e-mail
+console, les e-mails s'affichent dans le terminal du moteur.
 
 ## Tests et qualité
 

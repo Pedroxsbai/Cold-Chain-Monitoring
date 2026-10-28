@@ -1,13 +1,19 @@
+from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
+from rest_framework.views import APIView
 
+from audit.models import EventLog
+from audit.services import log_event
 from common.dates import filter_date_range
 from monitoring.services import fridges_for
 
-from . import services
-from .models import Incident
+from . import ack, services
+from .models import Incident, Notification
 from .serializers import (
     CloseIncidentSerializer,
     IncidentCommentSerializer,
@@ -80,3 +86,84 @@ class IncidentViewSet(viewsets.ReadOnlyModelViewSet):
         except services.IncidentActionError as error:
             return self._conflict(error)
         return self._detail_response(incident)
+
+
+class AckLinkView(APIView):
+    """Public page behind the link of a notification (no login needed on the phone).
+
+    GET shows the incident and records that the notification was opened — which does
+    NOT stop the escalation. POST takes charge, once per link.
+    """
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "ack"
+
+    def get_notification(self, token):
+        notification_id = ack.read_token(token)
+        if notification_id is None:
+            return None
+        return (
+            Notification.objects.select_related("incident__fridge", "user")
+            .filter(pk=notification_id, user__is_active=True)
+            .first()
+        )
+
+    def invalid(self):
+        return Response({"detail": "Lien invalide ou expiré."}, status=status.HTTP_400_BAD_REQUEST)
+
+    def describe(self, notification):
+        incident = notification.incident
+        return {
+            "incident": {
+                "id": incident.id,
+                "fridge_name": incident.fridge.name,
+                "type": incident.type,
+                "type_label": incident.get_type_display(),
+                "status": incident.status,
+                "status_label": incident.get_status_display(),
+                "started_at": incident.started_at,
+                "ended_at": incident.ended_at,
+                "current_level": incident.current_level,
+                "excursion_minutes": incident.total_excursion_minutes(),
+                "remaining_minutes": incident.remaining_minutes,
+                "reagents_compromised": incident.reagents_compromised,
+            },
+            "recipient": notification.user.get_full_name() or notification.user.email,
+            "link_used": notification.ack_used_at is not None,
+            "can_ack": notification.ack_used_at is None and services.can_acknowledge(incident),
+        }
+
+    def get(self, request, token):
+        notification = self.get_notification(token)
+        if notification is None:
+            return self.invalid()
+        if notification.read_at is None:
+            notification.read_at = timezone.now()
+            notification.save(update_fields=["read_at"])
+            log_event(
+                EventLog.Type.NOTIFICATION_READ,
+                actor=notification.user,
+                obj=notification.incident,
+                channel=notification.channel,
+            )
+        return Response(self.describe(notification))
+
+    def post(self, request, token):
+        notification = self.get_notification(token)
+        if notification is None:
+            return self.invalid()
+        if notification.ack_used_at is not None:
+            return Response(
+                {"detail": "Ce lien a déjà été utilisé."}, status=status.HTTP_409_CONFLICT
+            )
+        try:
+            services.acknowledge(notification.incident, notification.user, via=notification.channel)
+        except services.IncidentActionError as error:
+            return Response({"detail": str(error)}, status=status.HTTP_409_CONFLICT)
+        now = timezone.now()
+        notification.ack_used_at = now
+        notification.read_at = notification.read_at or now
+        notification.save(update_fields=["ack_used_at", "read_at"])
+        return Response(self.describe(notification))

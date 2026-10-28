@@ -46,7 +46,6 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     "django_filters",
-    "django_apscheduler",
     # Local apps
     "accounts",
     "monitoring",
@@ -91,6 +90,8 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": os.environ.get("SQLITE_PATH", BASE_DIR / "db.sqlite3"),
+        # The web server and the alert engine write concurrently: wait for locks.
+        "OPTIONS": {"timeout": 20},
     }
 }
 
@@ -142,6 +143,8 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         # Login and password reset, per client IP.
         "auth": os.environ.get("AUTH_THROTTLE_RATE", "10/min"),
+        # Public acknowledgement links.
+        "ack": os.environ.get("ACK_THROTTLE_RATE", "30/min"),
     },
 }
 
@@ -171,18 +174,45 @@ DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "coldchain@localhost")
 
 
 # Cold chain monitoring
+# Durations in minutes accept decimals, so a demo can run with e.g. NOTIFY_EVERY_MINUTES=0.5.
 
 COLDCHAIN = {
-    # Expected interval between two measurements from a node.
-    "MEASUREMENT_INTERVAL_MINUTES": int(os.environ.get("MEASUREMENT_INTERVAL_MINUTES", "20")),
-    # A node is considered offline after this delay without measurement.
-    "OFFLINE_AFTER_MINUTES": int(os.environ.get("OFFLINE_AFTER_MINUTES", "45")),
-    # Delay between two notifications of the same open incident.
-    "NOTIFY_EVERY_MINUTES": int(os.environ.get("NOTIFY_EVERY_MINUTES", "20")),
+    # Expected interval between two measurements from a node (firmware side).
+    "MEASUREMENT_INTERVAL_MINUTES": float(os.environ.get("MEASUREMENT_INTERVAL_MINUTES", "20")),
+    # A node is considered offline after this delay without measurement (2 cycles + margin).
+    "OFFLINE_AFTER_MINUTES": float(os.environ.get("OFFLINE_AFTER_MINUTES", "45")),
     # Consecutive out-of-range measurements required to open an incident.
     "CONSECUTIVE_OUT_OF_RANGE": int(os.environ.get("CONSECUTIVE_OUT_OF_RANGE", "2")),
+    # Delay between two notification rounds of the same open incident.
+    "NOTIFY_EVERY_MINUTES": float(os.environ.get("NOTIFY_EVERY_MINUTES", "20")),
+    # N2 joins after this many rounds, N3 after that many (N1 stays notified until the end).
+    "ESCALATE_N2_AFTER_ROUNDS": int(os.environ.get("ESCALATE_N2_AFTER_ROUNDS", "4")),
+    "ESCALATE_N3_AFTER_ROUNDS": int(os.environ.get("ESCALATE_N3_AFTER_ROUNDS", "8")),
+    # Excursion durations triggering an immediate alert to all levels.
+    "SEVERITY_HOURS": [float(h) for h in env_list("SEVERITY_HOURS", "5,8")],
+    # Escalation resumes if the incident is still unfinished this long after acknowledgement.
+    "RESUME_AFTER_ACK_MINUTES": float(os.environ.get("RESUME_AFTER_ACK_MINUTES", "120")),
+    # Period of the alert engine (run_alert_engine).
+    "TICK_SECONDS": int(os.environ.get("TICK_SECONDS", "30")),
+    # Enabled channels, in sending order.
+    "NOTIFY_CHANNELS": env_list("NOTIFY_CHANNELS", "ntfy,email"),
     "NTFY_SERVER": os.environ.get("NTFY_SERVER", "https://ntfy.sh"),
+    "NTFY_TOKEN": os.environ.get("NTFY_TOKEN", ""),
+    # Acknowledgement links sent in notifications.
+    "ACK_LINK_MAX_AGE_HOURS": float(os.environ.get("ACK_LINK_MAX_AGE_HOURS", "24")),
+    # Frontend URL (pages opened by users) and API URL (ntfy action buttons).
     "PUBLIC_BASE_URL": os.environ.get("PUBLIC_BASE_URL", "http://localhost:5173"),
+    "API_BASE_URL": os.environ.get("API_BASE_URL", "http://localhost:8000"),
+}
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {"simple": {"format": "{asctime} {levelname} {name}: {message}", "style": "{"}},
+    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "simple"}},
+    "loggers": {
+        "incidents": {"handlers": ["console"], "level": os.environ.get("LOG_LEVEL", "INFO")},
+    },
 }
 
 

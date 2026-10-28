@@ -50,11 +50,11 @@ class Incident(models.Model):
     )
     acked_at = models.DateTimeField("pris en charge le", null=True, blank=True)
 
-    # Excursion
+    # Excursion: `excursion_minutes` sums the finished out-of-range periods; while the
+    # fridge is out of range, `out_since` marks the start of the current period.
     excursion_minutes = models.FloatField("durée hors plage (min)", default=0)
-    severity_hours_reached = models.PositiveSmallIntegerField(
-        "dernier seuil de gravité atteint (h)", default=0
-    )
+    out_since = models.DateTimeField("hors plage depuis", null=True, blank=True)
+    severity_hours_reached = models.FloatField("dernier seuil de gravité atteint (h)", default=0)
     reagents_compromised = models.BooleanField("réactifs compromis", default=False)
 
     # Closure
@@ -68,6 +68,7 @@ class Incident(models.Model):
     )
     closed_at = models.DateTimeField("clôturé le", null=True, blank=True)
     closing_comment = models.TextField("commentaire de clôture", blank=True)
+    end_notified = models.BooleanField("fin notifiée", default=False)
 
     class Meta:
         ordering = ["-started_at"]
@@ -88,10 +89,19 @@ class Incident(models.Model):
     def is_finished(self):
         return self.ended_at is not None
 
+    def total_excursion_minutes(self, now=None):
+        """Cumulated out-of-range time, including the ongoing period."""
+        total = self.excursion_minutes
+        if self.out_since is not None:
+            now = now or timezone.now()
+            total += max(0.0, (now - self.out_since).total_seconds() / 60)
+        return total
+
     @property
     def remaining_minutes(self):
         """Minutes left before the reagents are considered compromised."""
-        return max(0.0, self.fridge.max_excursion_hours * 60 - self.excursion_minutes)
+        limit = self.fridge.max_excursion_hours * 60
+        return max(0.0, limit - self.total_excursion_minutes())
 
 
 class IncidentComment(models.Model):
@@ -119,6 +129,10 @@ class Notification(models.Model):
         SMS = "sms", "SMS"
         CALL = "call", "Appel vocal"
 
+    class Kind(models.TextChoices):
+        ALERT = "alert", "Alerte"
+        RESOLVED = "resolved", "Retour à la normale"
+
     class Status(models.TextChoices):
         PENDING = "pending", "En attente"
         SENT = "sent", "Envoyée"
@@ -129,11 +143,14 @@ class Notification(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="notifications"
     )
     channel = models.CharField("canal", max_length=10, choices=Channel.choices)
+    kind = models.CharField("type", max_length=10, choices=Kind.choices, default=Kind.ALERT)
     level = models.PositiveSmallIntegerField("niveau", default=1)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
     error = models.TextField(blank=True)
     sent_at = models.DateTimeField("envoyée le", null=True, blank=True)
     read_at = models.DateTimeField("lue le", null=True, blank=True)
+    # The acknowledgement link of a notification works once.
+    ack_used_at = models.DateTimeField("lien utilisé le", null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

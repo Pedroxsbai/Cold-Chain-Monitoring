@@ -75,3 +75,29 @@ def api():
         return client
 
     return make
+
+
+class FakeNtfy:
+    """Records ntfy publications instead of calling the network."""
+
+    def __init__(self):
+        self.calls = []
+        self.fail = False
+
+    def post(self, url, json=None, headers=None, timeout=None):
+        if self.fail:
+            raise ConnectionError("ntfy injoignable")
+        self.calls.append({"url": url, "json": json, "headers": headers})
+
+        class Response:
+            def raise_for_status(self):
+                pass
+
+        return Response()
+
+
+@pytest.fixture(autouse=True)
+def ntfy(monkeypatch):
+    fake = FakeNtfy()
+    monkeypatch.setattr("incidents.notifiers.requests.post", fake.post)
+    return fake

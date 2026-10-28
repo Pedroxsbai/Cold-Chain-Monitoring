@@ -12,7 +12,7 @@ from accounts.views import (
     UserViewSet,
 )
 from audit.views import EventLogViewSet
-from incidents.views import IncidentViewSet
+from incidents.views import AckLinkView, IncidentViewSet
 from monitoring.views import (
     DeviceViewSet,
     EscalationChainViewSet,
@@ -46,5 +46,6 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/auth/", include(auth_patterns)),
     path("api/measurements/", MeasurementView.as_view(), name="measurements"),
+    path("api/ack/<str:token>/", AckLinkView.as_view(), name="ack_link"),
     path("api/", include(router.urls)),
 ]

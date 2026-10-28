@@ -32,6 +32,9 @@ class ThresholdValidationMixin:
 
 class IncidentSummarySerializer(serializers.ModelSerializer):
     remaining_minutes = serializers.FloatField(read_only=True)
+    # Live value, including the ongoing out-of-range period.
+    excursion_minutes = serializers.FloatField(source="total_excursion_minutes", read_only=True)
+    out_of_range_now = serializers.SerializerMethodField()
 
     class Meta:
         model = Incident
@@ -43,8 +46,12 @@ class IncidentSummarySerializer(serializers.ModelSerializer):
             "current_level",
             "excursion_minutes",
             "remaining_minutes",
+            "out_of_range_now",
             "reagents_compromised",
         ]
+
+    def get_out_of_range_now(self, obj):
+        return obj.out_since is not None
 
 
 class FridgeSerializer(ThresholdValidationMixin, serializers.ModelSerializer):

@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 
 from django.conf import settings
@@ -6,9 +7,12 @@ from django.utils import timezone
 
 from audit.models import EventLog
 from audit.services import log_event
+from incidents import engine
 from incidents.models import Incident
 
 from .models import Device, Fridge, Measurement
+
+logger = logging.getLogger("incidents")
 
 THRESHOLD_FIELDS = ("temp_min", "temp_max", "hum_min", "hum_max", "max_excursion_hours")
 
@@ -100,4 +104,9 @@ def record_measurement(device, *, temperature, humidity, sensor_ok, firmware="")
     if was_offline:
         log_event(EventLog.Type.DEVICE_ONLINE, actor_label=device.device_id, obj=device)
 
+    try:
+        engine.on_measurement(measurement)
+    except Exception:
+        # The reading is stored; never make the node retry (and duplicate it) because of us.
+        logger.exception("Échec du moteur d'incidents pour la mesure #%s", measurement.pk)
     return measurement
