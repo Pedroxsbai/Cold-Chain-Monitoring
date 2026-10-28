@@ -76,6 +76,16 @@ python manage.py runserver 0.0.0.0:8000
 
 `createsuperuser` demande une adresse e-mail (pas de nom d'utilisateur) : la connexion se fait par e-mail.
 
+Données de démonstration (3 comptes N1/N2/N3, un frigo, un nœud `FRIGO-LAB-01` dont la clé API
+est affichée une seule fois) :
+
+```bash
+python manage.py seed_demo
+```
+
+La clé d'un nœud créé depuis l'admin est affichée une seule fois après l'enregistrement ;
+l'action « Régénérer la clé API » en crée une nouvelle.
+
 - Admin Django : http://localhost:8000/admin/
 - Connexion JWT : `POST /api/auth/login/` avec `{"email": "...", "password": "..."}`
 
