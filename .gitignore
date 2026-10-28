@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# Django
+*.sqlite3
+backend/staticfiles/
+backend/media/
+
+# Secrets
+.env
+.env.*
+!.env.example
+firmware/**/secrets.h
+
+# Node / React
+node_modules/
+frontend/dist/
+
+# OS / editors
+.DS_Store
+__MACOSX/
+Thumbs.db
+.vscode/
+.idea/
+
+# Legacy prototype and loose files kept locally only
+/Project/
+/_old_Project/
+/Example/
+/Cahier des charges*.md
+/ESP8266 Node MCUKIT.png
