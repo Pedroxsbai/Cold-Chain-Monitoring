@@ -89,6 +89,40 @@ l'action « Régénérer la clé API » en crée une nouvelle.
 - Admin Django : http://localhost:8000/admin/
 - Connexion JWT : `POST /api/auth/login/` avec `{"email": "...", "password": "..."}`
 
+## API REST
+
+Toutes les routes sont sous `/api/` et demandent un jeton JWT (`Authorization: Bearer <access>`),
+sauf la réception des mesures (clé du nœud) et la réinitialisation du mot de passe.
+
+| Méthode | Endpoint | Rôle | Accès |
+| --- | --- | --- | --- |
+| POST | `/api/measurements/` | Réception d'une mesure (`X-Device-Key` + `device_id` dans le JSON) | Nœud |
+| GET | `/api/measurements/?fridge=&from=&to=&page=` | Historique paginé | Ses frigos |
+| POST | `/api/auth/login/` · `refresh/` · `logout/` | Connexion (e-mail), renouvellement, déconnexion | Public / JWT |
+| GET, PATCH | `/api/auth/me/` | Profil et canaux de notification | JWT |
+| POST | `/api/auth/password/change/` | Changement de mot de passe | JWT |
+| POST | `/api/auth/password/reset/` · `reset/confirm/` | Mot de passe oublié | Public |
+| GET | `/api/fridges/` · `/api/fridges/{id}/` | Frigos + dernière mesure, statut, incident en cours | Ses frigos |
+| GET | `/api/fridges/{id}/measurements/?from=&to=` | Série pour les graphiques (24 h par défaut) | Ses frigos |
+| GET | `/api/fridges/{id}/measurements/export/?from=&to=` | Export CSV (`;`, virgule décimale) | Ses frigos |
+| POST, PUT, PATCH, DELETE | `/api/fridges/` | Gestion des frigos | Admin |
+| PATCH | `/api/fridges/{id}/thresholds/` | Seuils (journalisés) | Admin |
+| GET | `/api/incidents/?fridge=&type=&status=&active=true&from=&to=` | Incidents | Ses frigos |
+| POST | `/api/incidents/{id}/ack/` | Prise en charge | Chaîne du frigo |
+| POST | `/api/incidents/{id}/comments/` | Commentaire | Chaîne du frigo |
+| POST | `/api/incidents/{id}/close/` | Clôture avec commentaire (incident terminé) | N2 du frigo, Admin |
+| CRUD | `/api/users/` · `/api/devices/` · `/api/escalation/` | Administration | Admin |
+| POST | `/api/devices/{id}/rotate-key/` | Nouvelle clé de nœud (affichée une fois) | Admin |
+| GET | `/api/events/?type=&actor=&from=&to=` | Journal d'événements | Admin |
+
+`from` / `to` acceptent une date (`2026-10-28`) ou une date-heure ISO 8601.
+
+Exemple d'envoi par un nœud :
+
+```bash
+curl -X POST http://localhost:8000/api/measurements/   -H "Content-Type: application/json" -H "X-Device-Key: <clé>"   -d '{"device_id": "FRIGO-LAB-01", "temperature": 5.2, "humidity": 48, "sensor_ok": true, "firmware": "1.0.0"}'
+```
+
 ## Tests et qualité
 
 ```bash

@@ -1,11 +1,7 @@
 from django.contrib import admin, messages
 
-from audit.models import EventLog
-from audit.services import log_event
-
 from .models import Device, EscalationChain, Fridge, Measurement
-
-THRESHOLD_FIELDS = ["temp_min", "temp_max", "hum_min", "hum_max", "max_excursion_hours"]
+from .services import log_threshold_changes, threshold_snapshot
 
 
 class EscalationInline(admin.TabularInline):
@@ -22,16 +18,10 @@ class FridgeAdmin(admin.ModelAdmin):
     inlines = [EscalationInline]
 
     def save_model(self, request, obj, form, change):
-        changed = [f for f in THRESHOLD_FIELDS if f in form.changed_data] if change else []
-        old = Fridge.objects.get(pk=obj.pk) if changed else None
+        before = threshold_snapshot(Fridge.objects.get(pk=obj.pk)) if change else None
         super().save_model(request, obj, form, change)
-        if changed:
-            log_event(
-                EventLog.Type.THRESHOLD_CHANGED,
-                actor=request.user,
-                obj=obj,
-                changes={f: [getattr(old, f), getattr(obj, f)] for f in changed},
-            )
+        if before is not None:
+            log_threshold_changes(before, obj, request.user)
 
 
 @admin.register(Device)
