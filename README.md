@@ -11,7 +11,7 @@ Le cahier des charges complet se trouve dans [`docs/cahier-des-charges.md`](docs
 | --- | --- |
 | `backend/` | API Django + Django REST Framework, moteur d'incidents et d'escalade |
 | `frontend/` | Application React (Vite + TypeScript) |
-| `firmware/` | Firmware ESP8266 + DHT (C/C++ Arduino) |
+| `firmware/` | Firmware ESP8266 + DHT (C/C++ Arduino) — voir [`firmware/README.md`](firmware/README.md) |
 | `docs/` | Cahier des charges, schémas, rapports |
 
 Applications Django du backend :
