@@ -11,12 +11,14 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
+
 from audit.models import EventLog
 from audit.services import log_event
 from common.dates import filter_date_range
 from monitoring.services import fridges_for
 
 from . import ack, engine, services
+from .daily_backup import daily_backup_if_due
 from .models import Incident, Notification
 from .serializers import (
     CloseIncidentSerializer,
@@ -179,6 +181,9 @@ class EngineTickView(APIView):
 
     For hosts without a permanent process: an external cron service calls it every
     minute with the `X-Engine-Token` header. Disabled when ENGINE_TICK_TOKEN is empty.
+
+    The same tick also makes the daily SQLite backup (first tick after 03:00), since
+    scheduled tasks are not available on a free PythonAnywhere account.
     """
 
     authentication_classes = []
@@ -193,11 +198,13 @@ class EngineTickView(APIView):
             return Response({"detail": "Jeton invalide."}, status=status.HTTP_403_FORBIDDEN)
         started = timezone.now()
         engine.tick(started)
+        backup_done = daily_backup_if_due()
         return Response(
             {
                 "ok": True,
                 "at": started,
                 "duration_ms": round((timezone.now() - started).total_seconds() * 1000),
                 "unfinished_incidents": Incident.objects.filter(ended_at__isnull=True).count(),
+                "backup_done": backup_done,
             }
         )
